@@ -266,4 +266,9 @@ struct kvm_arch{
 };
 
 extern int sie64a(struct kvm_s390_sie_block *, u64 *);
+static inline void kvm_do_schedule(struct kvm_vcpu *vcpu)
+{
+	schedule();
+}
+
 #endif
