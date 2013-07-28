@@ -334,6 +334,8 @@ struct pv_lock_ops {
 	void (*spin_lock_flags)(struct arch_spinlock *lock, unsigned long flags);
 	int (*spin_trylock)(struct arch_spinlock *lock);
 	void (*spin_unlock)(struct arch_spinlock *lock);
+	struct paravirt_callee_save unfair_locked_val;
+	struct paravirt_callee_save lock_yield;
 };
 
 /* This contains all the paravirt structures: we get a convenient

@@ -34,6 +34,66 @@
 # define UNLOCK_LOCK_PREFIX
 #endif
 
+#define UNFAIR_UNLOCKED_VAL 0
+#define UNFAIR_LOCKED_VAL 1
+static inline int default_get_unfair_locked_val(void)
+{
+	return UNFAIR_LOCKED_VAL;
+}
+
+#ifndef CONFIG_PARAVIRT_UNFAIR_LOCK
+static inline int __get_unfair_locked_val(void)
+{
+	return default_get_unfair_locked_val();
+}
+static __always_inline void __lock_yield(struct arch_spinlock *lock)
+{
+}
+#endif
+
+#define SPIN_THRESHOLD (1<<12)
+
+static __always_inline void __unfair_spin_lock(arch_spinlock_t *lock)
+{
+	register  __ticket_t head = __get_unfair_locked_val();
+	register  __ticket_t free_lock = (__ticket_t)UNFAIR_UNLOCKED_VAL;
+
+	for (;;) {
+		unsigned count = SPIN_THRESHOLD;
+		do {
+			if (cmpxchg(&lock->tickets.head, free_lock, head) == free_lock)
+				goto done;
+			cpu_relax();
+		} while (--count);
+		__lock_yield(lock);
+	}
+done:
+	barrier();
+}
+
+static __always_inline int __unfair_spin_trylock(arch_spinlock_t *lock)
+{
+	register  __ticket_t head = __get_unfair_locked_val();
+	register  __ticket_t free_lock = UNFAIR_UNLOCKED_VAL;
+
+	return (cmpxchg(&lock->tickets.head, free_lock, head) == free_lock);
+}
+
+static __always_inline void __unfair_spin_unlock(arch_spinlock_t *lock)
+{
+	__ticket_t free_lock = UNFAIR_UNLOCKED_VAL;
+	xchg(&lock->tickets.head, free_lock);
+}
+
+static inline int __unfair_spin_is_locked(arch_spinlock_t *lock)
+{
+	__ticket_t tmp = ACCESS_ONCE(lock->tickets.head);
+	return (tmp != 0);
+}
+static inline int __unfair_spin_is_contended(arch_spinlock_t *lock)
+{
+	return __unfair_spin_is_locked(lock);
+}
 /*
  * Ticket locks are conceptually two parts, one indicating the current head of
  * the queue, and the other indicating the current tail. The lock is acquired
@@ -73,7 +133,7 @@ static __always_inline int __ticket_spin_trylock(arch_spinlock_t *lock)
 	new.head_tail = old.head_tail + (1 << TICKET_SHIFT);
 
 	/* cmpxchg is a full barrier, so nothing can move before it */
-	return cmpxchg(&lock->head_tail, old.head_tail, new.head_tail) == old.head_tail;
+	return (cmpxchg(&lock->head_tail, old.head_tail, new.head_tail) == old.head_tail);
 }
 
 static __always_inline void __ticket_spin_unlock(arch_spinlock_t *lock)
@@ -99,28 +159,49 @@ static inline int __ticket_spin_is_contended(arch_spinlock_t *lock)
 
 static inline int arch_spin_is_locked(arch_spinlock_t *lock)
 {
+#ifdef CONFIG_UNFAIR_LOCK
+	return __unfair_spin_is_locked(lock);
+#else
 	return __ticket_spin_is_locked(lock);
+#endif
 }
 
 static inline int arch_spin_is_contended(arch_spinlock_t *lock)
 {
+#ifdef CONFIG_UNFAIR_LOCK
+/* the notion of contended is wrong since we dont know if more waiters exist */
+	return __unfair_spin_is_contended(lock);
+#else
 	return __ticket_spin_is_contended(lock);
+#endif
 }
 #define arch_spin_is_contended	arch_spin_is_contended
 
 static __always_inline void arch_spin_lock(arch_spinlock_t *lock)
 {
+#ifdef CONFIG_UNFAIR_LOCK
+	__unfair_spin_lock(lock);
+#else
 	__ticket_spin_lock(lock);
+#endif
 }
 
 static __always_inline int arch_spin_trylock(arch_spinlock_t *lock)
 {
+#ifdef CONFIG_UNFAIR_LOCK
+	return 	__unfair_spin_trylock(lock);
+#else
 	return __ticket_spin_trylock(lock);
+#endif
 }
 
 static __always_inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
+#ifdef CONFIG_UNFAIR_LOCK
+	__unfair_spin_unlock(lock);
+#else
 	__ticket_spin_unlock(lock);
+#endif
 }
 
 static __always_inline void arch_spin_lock_flags(arch_spinlock_t *lock,
@@ -130,6 +211,7 @@ static __always_inline void arch_spin_lock_flags(arch_spinlock_t *lock,
 }
 
 #endif	/* CONFIG_PARAVIRT_SPINLOCKS */
+
 
 static inline void arch_spin_unlock_wait(arch_spinlock_t *lock)
 {

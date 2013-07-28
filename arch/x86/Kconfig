@@ -602,6 +602,15 @@ config SCHED_OMIT_FRAME_POINTER
 
 	  If in doubt, say "Y".
 
+config UNFAIR_LOCK
+	bool "unfair variation of spinlocks"
+	depends on SMP
+	---help---
+	  Unfair variation of spinlock to avoid lock waiter preemption
+	  problem.
+
+	  If you are unsure how to answer this question, answer N.
+
 menuconfig HYPERVISOR_GUEST
 	bool "Linux guest support"
 	---help---
@@ -639,6 +648,16 @@ config PARAVIRT_SPINLOCKS
 
 	  Unfortunately the downside is an up to 5% performance hit on
 	  native kernels, with various workloads.
+
+	  If you are unsure how to answer this question, answer N.
+
+config PARAVIRT_UNFAIR_LOCK
+	bool "unfair variation of spinlocks with lockholder tracking"
+	depends on PARAVIRT_SPINLOCKS
+	---help---
+	  Unfair variation of spinloc to avoid lock waiter preemption
+	  problem. It also supports yielding to lockholder if underlying
+	  hypervisor is enabled for that.
 
 	  If you are unsure how to answer this question, answer N.
 

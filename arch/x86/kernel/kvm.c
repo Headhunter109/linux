@@ -419,6 +419,7 @@ static void __init kvm_smp_prepare_boot_cpu(void)
 	WARN_ON(kvm_register_clock("primary cpu clock"));
 	kvm_guest_cpu_init();
 	native_smp_prepare_boot_cpu();
+	kvm_spinlock_init();
 }
 
 static void kvm_guest_cpu_online(void *dummy)
@@ -458,6 +459,15 @@ static int kvm_cpu_notify(struct notifier_block *self, unsigned long action,
 static struct notifier_block kvm_cpu_notifier = {
         .notifier_call  = kvm_cpu_notify,
 };
+
+static void kvm_yield_to_cpu(int src, int dest)
+{
+	int src_apicid, dest_apicid;
+
+	src_apicid = per_cpu(x86_cpu_to_apicid, src);
+	dest_apicid = per_cpu(x86_cpu_to_apicid, dest);
+	kvm_hypercall2(KVM_HC_YIELD_TO_CPU, src_apicid, dest_apicid);
+}
 #endif
 
 static void __init kvm_apf_trap_init(void)
@@ -523,3 +533,37 @@ static __init int activate_jump_labels(void)
 	return 0;
 }
 arch_initcall(activate_jump_labels);
+
+static void kvm_lock_yield(struct arch_spinlock *lock)
+{
+	int src_cpu = smp_processor_id();
+	int dest_cpu = ACCESS_ONCE(lock->head_tail);
+	if (dest_cpu)
+		kvm_yield_to_cpu(src_cpu, dest_cpu-1);
+}
+PV_CALLEE_SAVE_REGS_THUNK(kvm_lock_yield);
+
+static inline int kvm_get_unfair_locked_val(void)
+{
+	return smp_processor_id()+1;
+}
+PV_CALLEE_SAVE_REGS_THUNK(kvm_get_unfair_locked_val);
+
+#ifdef CONFIG_PARAVIRT_UNFAIR_LOCK
+/*
+ * Setup pv_lock_ops to exploit KVM_FEATURE_YIELD_TO_CPU if present.
+ */
+void __init kvm_spinlock_init(void)
+{
+	if (!kvm_para_available())
+		return;
+	/* Does host kernel support KVM_FEATURE_YIELD_TO_CPU */
+	if (!kvm_para_has_feature(KVM_FEATURE_YIELD_TO_CPU)) {
+		printk(KERN_INFO "KVM paravirtual unfair lock not setup\n");
+		return;
+	}
+	pv_lock_ops.unfair_locked_val = PV_CALLEE_SAVE(kvm_get_unfair_locked_val);
+	pv_lock_ops.lock_yield = PV_CALLEE_SAVE(kvm_lock_yield);
+	printk(KERN_INFO "KVM setup paravirtual unfair spinlock\n");
+}
+#endif /* CONFIG_PARAVIRT_SPINLOCKS */

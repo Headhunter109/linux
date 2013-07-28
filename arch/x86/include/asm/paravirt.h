@@ -711,7 +711,6 @@ static inline void __set_fixmap(unsigned /* enum fixed_addresses */ idx,
 }
 
 #if defined(CONFIG_SMP) && defined(CONFIG_PARAVIRT_SPINLOCKS)
-
 static inline int arch_spin_is_locked(struct arch_spinlock *lock)
 {
 	return PVOP_CALL1(int, pv_lock_ops.spin_is_locked, lock);
@@ -744,7 +743,19 @@ static __always_inline void arch_spin_unlock(struct arch_spinlock *lock)
 	PVOP_VCALL1(pv_lock_ops.spin_unlock, lock);
 }
 
+#ifdef CONFIG_PARAVIRT_UNFAIR_LOCK
+static inline int __get_unfair_locked_val(void)
+{
+	return PVOP_CALL0(int, pv_lock_ops.unfair_locked_val);
+}
+static __always_inline void __lock_yield(struct arch_spinlock *lock)
+{
+	PVOP_VCALLEE1(pv_lock_ops.lock_yield, lock);
+}
 #endif
+
+#endif
+
 
 #ifdef CONFIG_X86_32
 #define PV_SAVE_REGS "pushl %ecx; pushl %edx;"

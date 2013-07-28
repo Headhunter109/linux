@@ -5420,6 +5420,30 @@ void kvm_arch_exit(void)
 	free_percpu(shared_msrs);
 }
 
+static void kvm_yield_to_cpu_op(struct kvm *kvm, int src, int dest)
+{
+	int i;
+	int yielded = 0;
+	struct kvm_vcpu *vcpu = NULL;
+	struct kvm_vcpu *src_vcpu = NULL;
+	struct kvm_vcpu *dest_vcpu = NULL;
+
+	kvm_for_each_vcpu(i, vcpu, kvm) {
+		if (!kvm_apic_present(vcpu))
+			continue;
+		if (kvm_apic_match_dest(vcpu, 0, 0, dest, 0))
+			dest_vcpu = vcpu;
+		if (kvm_apic_match_dest(vcpu, 0, 0, src, 0))
+			src_vcpu = vcpu;
+		if (src_vcpu && dest_vcpu)
+			break;
+	}
+	if (dest_vcpu)
+		yielded = kvm_vcpu_yield_to(vcpu);
+	if (!yielded && src_vcpu)
+		kvm_vcpu_on_spin(src_vcpu);
+}
+
 int kvm_emulate_halt(struct kvm_vcpu *vcpu)
 {
 	++vcpu->stat.halt_exits;
@@ -5526,6 +5550,10 @@ int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 
 	switch (nr) {
 	case KVM_HC_VAPIC_POLL_IRQ:
+		ret = 0;
+		break;
+	case KVM_HC_YIELD_TO_CPU:
+		kvm_yield_to_cpu_op(vcpu->kvm, a0, a1);
 		ret = 0;
 		break;
 	default:
