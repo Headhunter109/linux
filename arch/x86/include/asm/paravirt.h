@@ -746,7 +746,7 @@ static __always_inline void arch_spin_unlock(struct arch_spinlock *lock)
 #ifdef CONFIG_PARAVIRT_UNFAIR_LOCK
 static inline int __get_unfair_locked_val(void)
 {
-	return PVOP_CALL0(int, pv_lock_ops.unfair_locked_val);
+	return PVOP_CALLEE0(int, pv_lock_ops.unfair_locked_val);
 }
 static __always_inline void __lock_yield(struct arch_spinlock *lock)
 {
