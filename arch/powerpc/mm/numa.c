@@ -63,6 +63,11 @@ static int form1_affinity;
 static int distance_ref_points_depth;
 static const __be32 *distance_ref_points;
 static int distance_lookup_table[MAX_NUMNODES][MAX_DISTANCE_REF_POINTS];
+static nodemask_t chipid_map = NODE_MASK_NONE;
+static int chipid_to_nid_map[MAX_NUMNODES]
+				= { [0 ... MAX_NUMNODES - 1] = NUMA_NO_NODE };
+static int nid_to_chipid_map[MAX_NUMNODES]
+				= { [0 ... MAX_NUMNODES - 1] = NUMA_NO_NODE };
 
 /*
  * Allocate node_to_cpumask_map based on number of available nodes
@@ -131,6 +136,48 @@ static int __init fake_numa_create_new_node(unsigned long end_pfn,
 		return 1;
 	}
 	return 0;
+}
+
+int chipid_to_nid(int chipid)
+{
+	if (chipid < 0)
+		return NUMA_NO_NODE;
+	return chipid_to_nid_map[chipid];
+}
+
+int nid_to_chipid(int nid)
+{
+	if (nid < 0)
+		return NUMA_NO_NODE;
+	return nid_to_chipid_map[nid];
+}
+
+static void __map_chipid_to_nid(int chipid, int nid)
+{
+	if (chipid_to_nid_map[chipid] == NUMA_NO_NODE
+	     || nid < chipid_to_nid_map[chipid])
+		chipid_to_nid_map[chipid] = nid;
+	if (nid_to_chipid_map[nid] == NUMA_NO_NODE
+	    || chipid < nid_to_chipid_map[nid])
+		nid_to_chipid_map[nid] = chipid;
+}
+
+int map_chipid_to_nid(int chipid)
+{
+	int nid;
+
+	if (chipid < 0 || chipid >= MAX_NUMNODES)
+		return NUMA_NO_NODE;
+
+	nid = chipid_to_nid_map[chipid];
+	if (nid == NUMA_NO_NODE) {
+		if (nodes_weight(chipid_map) >= MAX_NUMNODES)
+			return NUMA_NO_NODE;
+		nid = first_unset_node(chipid_map);
+		__map_chipid_to_nid(chipid, nid);
+		node_set(nid, chipid_map);
+	}
+	return nid;
 }
 
 int numa_cpu_lookup(int cpu)
@@ -263,7 +310,6 @@ static int associativity_to_chipid(const __be32 *associativity)
 out:
 	return chipid;
 }
-
 
  /* Return the nid from associativity */
 static int associativity_to_nid(const __be32 *associativity)
