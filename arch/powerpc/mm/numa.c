@@ -235,47 +235,47 @@ static void initialize_distance_lookup_table(int nid,
 	}
 }
 
-/* Returns nid in the range [0..MAX_NUMNODES-1], or -1 if no useful numa
+/* Returns chipid in the range [0..MAX_NUMNODES-1], or -1 if no useful numa
  * info is found.
  */
-static int associativity_to_nid(const __be32 *associativity)
+static int associativity_to_chipid(const __be32 *associativity)
 {
-	int nid = -1;
+	int chipid = -1;
 
 	if (min_common_depth == -1)
 		goto out;
 
 	if (of_read_number(associativity, 1) >= min_common_depth)
-		nid = of_read_number(&associativity[min_common_depth], 1);
+		chipid = of_read_number(&associativity[min_common_depth], 1);
 
 	/* POWER4 LPAR uses 0xffff as invalid node */
-	if (nid == 0xffff || nid >= MAX_NUMNODES)
-		nid = -1;
+	if (chipid == 0xffff || chipid >= MAX_NUMNODES)
+		chipid = -1;
 
-	if (nid > 0 &&
+	if (chipid > 0 &&
 		of_read_number(associativity, 1) >= distance_ref_points_depth) {
 		/*
 		 * Skip the length field and send start of associativity array
 		 */
-		initialize_distance_lookup_table(nid, associativity + 1);
+		initialize_distance_lookup_table(chipid, associativity + 1);
 	}
 
 out:
-	return nid;
+	return chipid;
 }
 
-/* Returns the nid associated with the given device tree node,
+/* Returns the chipid associated with the given device tree node,
  * or -1 if not found.
  */
-static int of_node_to_nid_single(struct device_node *device)
+static int of_node_to_chipid_single(struct device_node *device)
 {
-	int nid = -1;
+	int chipid = -1;
 	const __be32 *tmp;
 
 	tmp = of_get_associativity(device);
 	if (tmp)
-		nid = associativity_to_nid(tmp);
-	return nid;
+		chipid = associativity_to_chipid(tmp);
+	return chipid;
 }
 
 /* Walk the device tree upwards, looking for an associativity id */
@@ -286,7 +286,7 @@ int of_node_to_nid(struct device_node *device)
 
 	of_node_get(device);
 	while (device) {
-		nid = of_node_to_nid_single(device);
+		nid = of_node_to_chipid_single(device);
 		if (nid != -1)
 			break;
 
@@ -498,7 +498,7 @@ static int of_get_assoc_arrays(struct device_node *memory,
 }
 
 /*
- * This is like of_node_to_nid_single() for memory represented in the
+ * This is like of_node_to_chipid_single() for memory represented in the
  * ibm,dynamic-reconfiguration-memory node.
  */
 static int of_drconf_to_nid_single(struct of_drconf_cell *drmem,
@@ -557,7 +557,7 @@ static int numa_setup_cpu(unsigned long lcpu)
 			goto out;
 	}
 
-	nid = of_node_to_nid_single(cpu);
+	nid = of_node_to_chipid_single(cpu);
 
 out_present:
 	if (nid < 0 || !node_online(nid))
@@ -754,7 +754,7 @@ static int __init parse_numa_properties(void)
 
 		cpu = of_get_cpu_node(i, NULL);
 		BUG_ON(!cpu);
-		nid = of_node_to_nid_single(cpu);
+		nid = of_node_to_chipid_single(cpu);
 		of_node_put(cpu);
 
 		/*
@@ -796,7 +796,7 @@ new_range:
 		 * have associativity properties.  If none, then
 		 * everything goes to default_nid.
 		 */
-		nid = of_node_to_nid_single(memory);
+		nid = of_node_to_chipid_single(memory);
 		if (nid < 0)
 			nid = default_nid;
 
@@ -1119,7 +1119,7 @@ static int hot_add_node_scn_to_nid(unsigned long scn_addr)
 			if ((scn_addr < start) || (scn_addr >= (start + size)))
 				continue;
 
-			nid = of_node_to_nid_single(memory);
+			nid = of_node_to_chipid_single(memory);
 			break;
 		}
 
@@ -1415,7 +1415,7 @@ int arch_update_cpu_topology(void)
 
 		/* Use associativity from first thread for all siblings */
 		vphn_get_associativity(cpu, associativity);
-		new_nid = associativity_to_nid(associativity);
+		new_nid = associativity_to_chipid(associativity);
 		if (new_nid < 0 || !node_online(new_nid))
 			new_nid = first_online_node;
 
