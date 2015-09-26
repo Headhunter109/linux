@@ -304,7 +304,8 @@ static int associativity_to_chipid(const __be32 *associativity)
 		/*
 		 * Skip the length field and send start of associativity array
 		 */
-		initialize_distance_lookup_table(chipid, associativity + 1);
+		initialize_distance_lookup_table(chipid_to_nid(chipid),
+						 associativity + 1);
 	}
 
 out:
@@ -314,9 +315,10 @@ out:
  /* Return the nid from associativity */
 static int associativity_to_nid(const __be32 *associativity)
 {
-	int nid;
+	int chipid, nid;
 
-	nid = associativity_to_chipid(associativity);
+	chipid = associativity_to_chipid(associativity);
+	nid = map_chipid_to_nid(chipid);
 	return nid;
 }
 
@@ -340,9 +342,10 @@ static int of_node_to_chipid_single(struct device_node *device)
  */
 static int of_node_to_nid_single(struct device_node *device)
 {
-	int nid;
+	int chipid, nid;
 
-	nid = of_node_to_chipid_single(device);
+	chipid = of_node_to_chipid_single(device);
+	nid = map_chipid_to_nid(chipid);
 	return nid;
 }
 
