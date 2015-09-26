@@ -264,6 +264,17 @@ out:
 	return chipid;
 }
 
+
+ /* Return the nid from associativity */
+static int associativity_to_nid(const __be32 *associativity)
+{
+	int nid;
+
+	nid = associativity_to_chipid(associativity);
+	return nid;
+}
+
+
 /* Returns the chipid associated with the given device tree node,
  * or -1 if not found.
  */
@@ -278,6 +289,17 @@ static int of_node_to_chipid_single(struct device_node *device)
 	return chipid;
 }
 
+/*
+ * Returns nid from the chipid associated with given tree node
+ */
+static int of_node_to_nid_single(struct device_node *device)
+{
+	int nid;
+
+	nid = of_node_to_chipid_single(device);
+	return nid;
+}
+
 /* Walk the device tree upwards, looking for an associativity id */
 int of_node_to_nid(struct device_node *device)
 {
@@ -286,7 +308,7 @@ int of_node_to_nid(struct device_node *device)
 
 	of_node_get(device);
 	while (device) {
-		nid = of_node_to_chipid_single(device);
+		nid = of_node_to_nid_single(device);
 		if (nid != -1)
 			break;
 
@@ -498,7 +520,7 @@ static int of_get_assoc_arrays(struct device_node *memory,
 }
 
 /*
- * This is like of_node_to_chipid_single() for memory represented in the
+ * This is like of_node_to_nid_single() for memory represented in the
  * ibm,dynamic-reconfiguration-memory node.
  */
 static int of_drconf_to_nid_single(struct of_drconf_cell *drmem,
@@ -557,7 +579,7 @@ static int numa_setup_cpu(unsigned long lcpu)
 			goto out;
 	}
 
-	nid = of_node_to_chipid_single(cpu);
+	nid = of_node_to_nid_single(cpu);
 
 out_present:
 	if (nid < 0 || !node_online(nid))
@@ -754,7 +776,7 @@ static int __init parse_numa_properties(void)
 
 		cpu = of_get_cpu_node(i, NULL);
 		BUG_ON(!cpu);
-		nid = of_node_to_chipid_single(cpu);
+		nid = of_node_to_nid_single(cpu);
 		of_node_put(cpu);
 
 		/*
@@ -796,7 +818,7 @@ new_range:
 		 * have associativity properties.  If none, then
 		 * everything goes to default_nid.
 		 */
-		nid = of_node_to_chipid_single(memory);
+		nid = of_node_to_nid_single(memory);
 		if (nid < 0)
 			nid = default_nid;
 
@@ -1119,7 +1141,7 @@ static int hot_add_node_scn_to_nid(unsigned long scn_addr)
 			if ((scn_addr < start) || (scn_addr >= (start + size)))
 				continue;
 
-			nid = of_node_to_chipid_single(memory);
+			nid = of_node_to_nid_single(memory);
 			break;
 		}
 
@@ -1415,7 +1437,7 @@ int arch_update_cpu_topology(void)
 
 		/* Use associativity from first thread for all siblings */
 		vphn_get_associativity(cpu, associativity);
-		new_nid = associativity_to_chipid(associativity);
+		new_nid = associativity_to_nid(associativity);
 		if (new_nid < 0 || !node_online(new_nid))
 			new_nid = first_online_node;
 
