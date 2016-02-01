@@ -69,6 +69,10 @@ SUBSYS(pids)
 
 SUBSYS_TAG(CANFORK_END)
 
+#if IS_ENABLED(CONFIG_CGROUP_MEMBW)
+SUBSYS(membw)
+#endif
+
 /*
  * The following subsystems are not supported on the default hierarchy.
  */

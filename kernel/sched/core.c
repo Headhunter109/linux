@@ -2492,6 +2492,10 @@ fire_sched_out_preempt_notifiers(struct task_struct *curr,
 
 #endif /* CONFIG_PREEMPT_NOTIFIERS */
 
+extern void membw_sched_in(struct task_struct *prev);
+extern void membw_sched_out(struct task_struct *prev,
+                          struct task_struct *next);
+
 /**
  * prepare_task_switch - prepare to switch tasks
  * @rq: the runqueue preparing to switch
@@ -2511,7 +2515,9 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
 {
 	sched_info_switch(rq, prev, next);
 	perf_event_task_sched_out(prev, next);
+	membw_sched_out(prev, next);
 	fire_sched_out_preempt_notifiers(prev, next);
+
 	prepare_lock_switch(rq, next);
 	prepare_arch_switch(next);
 }
@@ -2577,6 +2583,7 @@ static struct rq *finish_task_switch(struct task_struct *prev)
 	finish_lock_switch(rq, prev);
 	finish_arch_post_lock_switch();
 
+	membw_sched_in(current);
 	fire_sched_in_preempt_notifiers(current);
 	if (mm)
 		mmdrop(mm);
