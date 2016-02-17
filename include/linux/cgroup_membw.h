@@ -30,10 +30,16 @@ struct membw_cgroup {
 	unsigned long	membw_opweight;
 	unsigned long	membw_interval;
 };
+#ifdef CONFIG_PPC64
+extern void arch_membw_sched_in(struct membw_cgroup);
+extern void arch_membw_sched_out(void);
+
+#else
 static void inline arch_membw_sched_in(struct membw_cgroup)
 {
 }
 static void inline arch_membw_sched_out(void)
 {
 }
+#endif
 #endif /* _LINUX_CGROUP_MEMBW_H */
