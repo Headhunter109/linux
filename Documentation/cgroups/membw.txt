@@ -1,0 +1,43 @@
+						    Memory bandwidth Controller
+						   ============================
+
+Abstract
+--------
+
+The The memory bandwidth controller is used control the memory bandwidth consumed
+individual tasks. The idea is that restricting the low priority tasks from doing
+huge amount of load and store operations stalling memory operations of higher
+priority tasks
+
+Usage
+-----
+Memory bandwidth is controlled by the notion of weight (allowed values 0-100),
+Where value of 0 indicates unrestricted bandwidth. Values from 1 to 100 helps
+in scaling numebr of allowed memory operations.
+
+Note that any task inside the cgroup will have same restriction applied when
+they are scheduled. Bandwidth limitation of a task in cgroup is not limited
+because of number of sibling processes that are consuming bandwidth in the
+current implemenation.
+
+Root cgroup will have no restriction and membw restriction is applicab;le only to
+child cgroups.
+
+Example
+-------
+
+First, we mount the membw controller:
+# mkdir -p /sys/fs/cgroup/membw
+# mount -t cgroup -o membw none /sys/fs/cgroup/membw
+#cd /sys/fs/cgroup/membw
+#mkdir a
+#cd a
+#echo $$ > tasks
+#echo 10 > membw.weight
+##<Run a task here>
+#echo 0 > membw.weight
+##<Run same task here>
+
+You should notice the diference in throughput when membw is set to 0 and 10 if the
+task does considerable amount of load and store opeartions is normal usage.
+
