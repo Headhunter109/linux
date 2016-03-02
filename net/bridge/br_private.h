@@ -27,7 +27,7 @@
 
 #define BR_HOLD_TIME (1*HZ)
 
-#define BR_PORT_BITS	10
+#define BR_PORT_BITS	14
 #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
 
 #define BR_VERSION	"2.3"
